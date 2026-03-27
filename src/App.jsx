@@ -1,9 +1,64 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
-const SUPER_ADMIN      = { username: "Tanu", password: "Tanu123" };
-const STORAGE_KEY_BOARDS = "retro:boards";
-const STORAGE_KEY_ADMINS = "retro:admins";
-const POLL_MS = 4000;
+// ── Supabase config ──
+const SUPABASE_URL = "https://etserxilunoxlwphblaf.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV0c2VyeGlsdW5veGx3cGhibGFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MzY3MjksImV4cCI6MjA5MDIxMjcyOX0.dpOe9SxhdElxcf_Ps7KhFLkHrQPJmomaGC-48pCJhAM";
+const DB = `${SUPABASE_URL}/rest/v1`;
+const HEADERS = {
+  "Content-Type": "application/json",
+  "apikey": SUPABASE_KEY,
+  "Authorization": `Bearer ${SUPABASE_KEY}`,
+  "Prefer": "return=representation",
+};
+
+// ── Supabase helpers ──
+async function dbGetAdmins() {
+  try {
+    const r = await fetch(`${DB}/admins?select=*`, { headers: HEADERS });
+    const data = await r.json();
+    return Array.isArray(data) ? data.map(a => ({ username: a.username, password: a.password, displayName: a.display_name, createdAt: a.created_at })) : [];
+  } catch(e) { return []; }
+}
+
+async function dbSaveAdmin(admin) {
+  try {
+    await fetch(`${DB}/admins`, {
+      method: "POST",
+      headers: { ...HEADERS, "Prefer": "resolution=merge-duplicates,return=representation" },
+      body: JSON.stringify({ username: admin.username, password: admin.password, display_name: admin.displayName, created_at: admin.createdAt }),
+    });
+  } catch(e) {}
+}
+
+async function dbDeleteAdmin(username) {
+  try {
+    await fetch(`${DB}/admins?username=eq.${username}`, { method: "DELETE", headers: HEADERS });
+  } catch(e) {}
+}
+
+async function dbGetBoards() {
+  try {
+    const r = await fetch(`${DB}/boards?select=*`, { headers: HEADERS });
+    const data = await r.json();
+    return Array.isArray(data) ? data.map(b => ({ ...b.data, id: b.id, ownedBy: b.owned_by, ownedByName: b.owned_by_name, createdAt: b.created_at })) : [];
+  } catch(e) { return []; }
+}
+
+async function dbSaveBoard(board) {
+  try {
+    await fetch(`${DB}/boards`, {
+      method: "POST",
+      headers: { ...HEADERS, "Prefer": "resolution=merge-duplicates,return=representation" },
+      body: JSON.stringify({ id: board.id, owned_by: board.ownedBy, owned_by_name: board.ownedByName, created_at: board.createdAt, data: board }),
+    });
+  } catch(e) {}
+}
+
+async function dbDeleteBoard(id) {
+  try {
+    await fetch(`${DB}/boards?id=eq.${id}`, { method: "DELETE", headers: HEADERS });
+  } catch(e) {}
+}
 
 const PHASES = ["setup","context","shoutouts","timeline","collect","discuss","actions"];
 const PHASE_LABELS = { setup:"Setup", context:"Context", shoutouts:"Kudos Board", timeline:"Timeline", collect:"Collect", discuss:"Discuss", actions:"Actions" };
@@ -47,15 +102,12 @@ const mkBoard  = (ownedBy, ownedByName) => ({
   createdAt: Date.now(),
 });
 
-// ── localStorage — works perfectly when hosted outside Claude.ai ──
+// ── localStorage — used only as offline fallback ──
 const storageSave = (key, val) => {
-  try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) { console.error("Save failed", e); }
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
 };
 const storageLoad = (key) => {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : null;
-  } catch(e) { return null; }
+  try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : null; } catch(e) { return null; }
 };
 
 const BG_DOTS = `url("data:image/svg+xml,%3Csvg width='32' height='32' viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='2' cy='2' r='1.2' fill='rgba(120,113,108,0.1)'/%3E%3C/svg%3E")`;
@@ -331,13 +383,30 @@ export default function App() {
   const activeBoard = boards.find(b=>b.id===boardId);
   const myBoards    = boards.filter(b=>b.ownedBy===currentAdmin?.username);
 
-  // ── Load from localStorage on mount ──
+  // ── Load from Supabase on mount ──
+  const [storageReady, setStorageReady] = useState(false);
+
   useEffect(()=>{
-    const a = storageLoad(STORAGE_KEY_ADMINS);
-    if(a && Array.isArray(a)) setAdmins(a);
-    const b = storageLoad(STORAGE_KEY_BOARDS);
-    if(b && Array.isArray(b)) setBoards(b);
+    (async()=>{
+      const a = await dbGetAdmins();
+      if(a.length) { setAdmins(a); storageSave("retro:admins", a); }
+      else { const local = storageLoad("retro:admins"); if(local) setAdmins(local); }
+      const b = await dbGetBoards();
+      if(b.length) { setBoards(b); storageSave("retro:boards", b); }
+      else { const local = storageLoad("retro:boards"); if(local) setBoards(local); }
+      setStorageReady(true);
+    })();
   },[]);
+
+  // ── Poll Supabase every 5s for cross-device sync ──
+  useEffect(()=>{
+    if(screen==="login") return;
+    const iv = setInterval(async()=>{
+      const a = await dbGetAdmins(); if(a.length) setAdmins(a);
+      const b = await dbGetBoards(); if(b.length) setBoards(b);
+    }, POLL_MS);
+    return()=>clearInterval(iv);
+  },[screen]);
 
   // ── Auth ──
   function doLogin() {
@@ -366,25 +435,47 @@ export default function App() {
     setSaTab("accounts"); setPhase("setup");
   }
 
+  // ── Save to Supabase + localStorage backup ──
+  function saveBoards(updated) {
+    setBoards(updated);
+    storageSave("retro:boards", updated);
+    // upsert each board to Supabase
+    updated.forEach(b => dbSaveBoard(b));
+  }
+
+  function saveAdmins(updated) {
+    setAdmins(updated);
+    storageSave("retro:admins", updated);
+  }
+
   // ── Admin management ──
   function addAdmin(){
     const {username,password,displayName}=newAd;
     if(!username.trim()||!password.trim()||!displayName.trim()){setAdErr("All fields required.");return;}
     if(username.trim()===SUPER_ADMIN.username){setAdErr("That username is reserved.");return;}
     if(admins.find(a=>a.username===username.trim())){setAdErr("Username already exists.");return;}
-    const updated=[...admins,{username:username.trim(),password:password.trim(),displayName:displayName.trim(),createdAt:Date.now()}];
-    setAdmins(updated); storageSave(STORAGE_KEY_ADMINS,updated);
+    const admin = {username:username.trim(),password:password.trim(),displayName:displayName.trim(),createdAt:Date.now()};
+    const updated=[...admins, admin];
+    setAdmins(updated); storageSave("retro:admins", updated);
+    dbSaveAdmin(admin);
     setNewAd({username:"",password:"",displayName:""}); setAdErr("");
   }
-  function removeAdmin(un){ const u=admins.filter(a=>a.username!==un); setAdmins(u); storageSave(STORAGE_KEY_ADMINS,u); }
 
-  // ── Board mutations ──
-  function saveBoards(updated){ setBoards(updated); storageSave(STORAGE_KEY_BOARDS,updated); }
+  function removeAdmin(un){
+    const updated=admins.filter(a=>a.username!==un);
+    setAdmins(updated); storageSave("retro:admins", updated);
+    dbDeleteAdmin(un);
+  }
   function updateBoard(fn){ saveBoards(boards.map(b=>b.id===boardId?fn(b):b)); }
   function mutate(field,fn){ updateBoard(b=>({...b,[field]:fn(b[field])})); }
   function createBoard(){ const b=mkBoard(currentAdmin.username,currentAdmin.displayName); const updated=[...boards,b]; saveBoards(updated); setBoardId(b.id); setPhase("setup"); setScreen("board"); }
   function openBoard(id){ setBoardId(id); setPhase("setup"); setScreen("board"); }
-  function deleteBoard(id){ const updated=boards.filter(b=>b.id!==id); saveBoards(updated); if(boardId===id){ setBoardId(null); setScreen("facilitator"); } }
+  function deleteBoard(id){
+    const updated=boards.filter(b=>b.id!==id);
+    saveBoards(updated);
+    dbDeleteBoard(id);
+    if(boardId===id){ setBoardId(null); setScreen("facilitator"); }
+  }
   const setRetroF = (k,v) => updateBoard(b=>({...b,retro:{...b.retro,[k]:v}}));
   const setCtxF   = (k,v) => updateBoard(b=>({...b,context:{...(b.context||{}),[k]:v}}));
   function submitCard(colId){ const t=(drafts[colId]||"").trim(); if(!t)return; mutate("cards",c=>[...c,{id:uid(),colId,text:t,author:pName_,ts:Date.now(),comments:[]}]); setDrafts(p=>({...p,[colId]:""})); }
@@ -445,6 +536,16 @@ Return this exact JSON:
 
   const isFacil = screen==="board";
   const pName__ = isFacil ? (currentAdmin?.displayName||"Facilitator") : pName_;
+
+  if(!storageReady) return(
+    <div style={{background:T.bg,minHeight:"700px",padding:"2rem",borderRadius:"16px",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}}>
+      <div style={{textAlign:"center",color:T.s}}>
+        <div style={{fontSize:"22px",marginBottom:"12px",opacity:.4}}>◎</div>
+        <div style={{fontSize:"13px",fontWeight:500}}>Connecting to database…</div>
+        <div style={{fontSize:"12px",color:T.t,marginTop:"6px"}}>Loading your boards and accounts</div>
+      </div>
+    </div>
+  );
 
   const wrap = content => (
     <div style={{background:T.bg,backgroundImage:`${BG_DOTS},${BG_MAIN}`,backgroundSize:"32px 32px,cover",minHeight:"700px",padding:"2rem",borderRadius:"16px",color:T.p,fontFamily:"inherit",position:"relative",overflow:"hidden"}}>
