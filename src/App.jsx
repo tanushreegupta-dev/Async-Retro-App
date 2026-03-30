@@ -412,9 +412,12 @@ export default function App() {
   function doLogin() {
     const u = loginUser.trim(), p = loginPass.trim();
     if(!u||!p){ setLoginErr("Enter username and password."); return; }
+    // Super admin — hardcoded, never needs database
     if(u===SUPER_ADMIN.username && p===SUPER_ADMIN.password){
       setIsSuperAdmin(true); setCurrentAdmin(null); setScreen("superadmin"); setLoginErr(""); return;
     }
+    // If still loading, retry after a short delay
+    if(!storageReady){ setLoginErr("Still loading accounts, please try again in a moment."); return; }
     const found = admins.find(a=>a.username===u && a.password===p);
     if(found){ setCurrentAdmin(found); setIsSuperAdmin(false); setScreen("facilitator"); setLoginErr(""); return; }
     setLoginErr("Incorrect username or password.");
@@ -573,7 +576,8 @@ Return this exact JSON:
           <label style={sl}>Password</label>
           <input value={loginPass} onChange={e=>{setLoginPass(e.target.value);setLoginErr("");}} onKeyDown={e=>e.key==="Enter"&&doLogin()} type="password" placeholder="Enter password" style={{...si,marginBottom:loginErr?"8px":"14px"}}/>
           {loginErr&&<div style={{fontSize:"11px",color:"#b05a2f",marginBottom:"10px",padding:"6px 10px",borderRadius:"6px",background:"rgba(176,90,47,0.08)",border:"1px solid rgba(176,90,47,0.2)"}}>{loginErr}</div>}
-          <Btn onClick={doLogin} full color="linear-gradient(135deg,#6a7a8c,#8a9aaa)">Sign in →</Btn>
+          <Btn onClick={doLogin} full color="linear-gradient(135deg,#6a7a8c,#8a9aaa)">{storageReady?"Sign in →":"Connecting…"}</Btn>
+          {!storageReady&&<div style={{fontSize:"11px",color:T.t,marginTop:"8px",textAlign:"center"}}>Connecting to database, please wait…</div>}
         </Panel>
         <Panel style={{padding:"22px 24px"}}>
           <div style={{fontSize:"13px",fontWeight:500,color:T.p,marginBottom:"16px"}}>Join as participant</div>
