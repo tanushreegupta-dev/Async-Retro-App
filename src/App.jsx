@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
+const SUPER_ADMIN = { username: "Tanu", password: "Tanu123" };
+const POLL_MS = 5000;
+
 // ── Supabase config ──
 const SUPABASE_URL = "https://etserxilunoxlwphblaf.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV0c2VyeGlsdW5veGx3cGhibGFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MzY3MjksImV4cCI6MjA5MDIxMjcyOX0.dpOe9SxhdElxcf_Ps7KhFLkHrQPJmomaGC-48pCJhAM";
