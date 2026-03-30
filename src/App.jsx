@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+const SUPER_ADMIN = { username: "Tanu", password: "Tanu123" };
+const POLL_MS = 5000;
 
 // ── Supabase config ──
 const SUPABASE_URL = "https://etserxilunoxlwphblaf.supabase.co";
