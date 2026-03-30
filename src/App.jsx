@@ -1,7 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
+// ── App constants — must be declared first ──
 const SUPER_ADMIN = { username: "Tanu", password: "Tanu123" };
 const POLL_MS = 5000;
+
+const T = {
+  bg:"linear-gradient(145deg,#faf9f7 0%,#f7f4f0 50%,#f2ede8 100%)",
+  card:"rgba(255,255,255,0.85)", border:"rgba(120,113,108,0.15)",
+  inp:"rgba(255,255,255,0.95)", inpBdr:"rgba(120,113,108,0.22)",
+  p:"#2c2825", s:"#6b6560", t:"#a39e99", acc:"#7a6f65",
+};
 
 // ── Supabase config ──
 const SUPABASE_URL = "https://etserxilunoxlwphblaf.supabase.co";
@@ -122,12 +130,6 @@ const COL_PATS = [
   `url("data:image/svg+xml,%3Csvg width='36' height='36' viewBox='0 0 36 36' xmlns='http://www.w3.org/2000/svg'%3E%3Cline x1='0' y1='18' x2='36' y2='18' stroke='rgba(30,138,138,0.08)' stroke-width='1'/%3E%3C/svg%3E")`,
 ];
 
-const T = {
-  bg:"linear-gradient(145deg,#faf9f7 0%,#f7f4f0 50%,#f2ede8 100%)",
-  card:"rgba(255,255,255,0.85)", border:"rgba(120,113,108,0.15)",
-  inp:"rgba(255,255,255,0.95)", inpBdr:"rgba(120,113,108,0.22)",
-  p:"#2c2825", s:"#6b6560", t:"#a39e99", acc:"#7a6f65",
-};
 const si = { width:"100%", boxSizing:"border-box", fontSize:"13px", padding:"9px 13px",
   borderRadius:"8px", border:`1px solid ${T.inpBdr}`, background:T.inp, color:T.p, fontFamily:"inherit" };
 const sl = { fontSize:"10px", fontWeight:500, letterSpacing:"0.08em", textTransform:"uppercase",
