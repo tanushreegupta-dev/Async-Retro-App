@@ -1,6 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-const SUPER_ADMIN = { username: "Tanu", password: "Tanu123" };
-const POLL_MS = 5000;
 
 // ── Supabase config ──
 const SUPABASE_URL = "https://etserxilunoxlwphblaf.supabase.co";
@@ -348,6 +346,142 @@ function SummaryModal({board,text,setText,generating,onClose,onSave,onRegen,onUn
   );
 }
 
+function WideModal({title, subtitle, text, generating, onClose, onRegen, type}) {
+  let parsed = null;
+  try { if(text) parsed = JSON.parse(text); } catch(_) {}
+  const hc = {Green:"#3a7d44", Amber:"#a07820", Red:"#a05050"};
+  const hbg = {Green:"rgba(58,125,68,0.08)", Amber:"rgba(160,120,32,0.08)", Red:"rgba(160,80,80,0.08)"};
+  const pc = {High:"#a05050", Medium:"#a07820", Low:"#6a8c78"};
+  const h = parsed?.overallHealth||"Amber";
+
+  const Section = ({label, items, color="#6a7a8c"}) => items?.length ? (
+    <div>
+      <div style={{fontSize:"10px",fontWeight:500,letterSpacing:"0.08em",textTransform:"uppercase",color,marginBottom:"8px"}}>{label}</div>
+      {items.map((it,i)=>(
+        <div key={i} style={{display:"flex",gap:"8px",marginBottom:"6px",alignItems:"flex-start"}}>
+          <span style={{width:16,height:16,borderRadius:"50%",background:`${color}22`,color,fontSize:"9px",fontWeight:500,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:"1px"}}>{i+1}</span>
+          <span style={{fontSize:"12px",color:T.p,lineHeight:1.5}}>{it}</span>
+        </div>
+      ))}
+    </div>
+  ) : null;
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(44,40,37,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:"1.5rem"}}>
+      <div style={{background:"#faf9f7",borderRadius:"16px",border:`1px solid ${T.border}`,width:"100%",maxWidth:"820px",maxHeight:"90vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <div style={{padding:"16px 24px",borderBottom:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+          <div>
+            <div style={{fontSize:"14px",fontWeight:500,color:T.p}}>{title}</div>
+            <div style={{fontSize:"12px",color:T.s,marginTop:"2px"}}>{subtitle}</div>
+          </div>
+          <button onClick={onClose} style={{fontSize:"20px",background:"transparent",border:"none",color:T.t,cursor:"pointer",lineHeight:1}}>×</button>
+        </div>
+        <div style={{flex:1,overflow:"auto",padding:"20px 24px"}}>
+          {generating ? (
+            <div style={{textAlign:"center",padding:"4rem",color:T.s}}>
+              <div style={{fontSize:"22px",marginBottom:"12px",opacity:.4}}>✦</div>
+              <div style={{fontSize:"13px",fontWeight:500}}>Generating {type==="org"?"org-wide":"program"} summary…</div>
+              <div style={{fontSize:"12px",color:T.t,marginTop:"6px"}}>Analysing all retrospectives for patterns and themes</div>
+            </div>
+          ) : !parsed ? (
+            <div style={{textAlign:"center",padding:"4rem",color:T.s}}>
+              <div style={{fontSize:"13px",marginBottom:"16px"}}>No summary yet.</div>
+              <button onClick={onRegen} style={{fontSize:"12px",padding:"8px 20px",borderRadius:"8px",background:"linear-gradient(135deg,#6a7a8c,#8a9aaa)",color:"#fff",border:"none",cursor:"pointer"}}>Generate ↗</button>
+            </div>
+          ) : (
+            <div style={{display:"flex",flexDirection:"column",gap:"16px"}}>
+              {/* Health + Summary */}
+              <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:"12px",alignItems:"start"}}>
+                <div style={{padding:"14px 18px",borderRadius:"12px",background:hbg[h],border:`1px solid ${hc[h]}30`,textAlign:"center",minWidth:"90px"}}>
+                  <div style={{fontSize:"22px",fontWeight:500,color:hc[h]}}>{h==="Green"?"●":h==="Amber"?"◐":"○"}</div>
+                  <div style={{fontSize:"11px",fontWeight:500,color:hc[h],marginTop:"4px",letterSpacing:"0.05em",textTransform:"uppercase"}}>{h}</div>
+                </div>
+                <div style={{padding:"14px 18px",borderRadius:"12px",background:"rgba(120,113,108,0.05)",border:`1px solid ${T.border}`}}>
+                  <div style={{fontSize:"10px",fontWeight:500,letterSpacing:"0.08em",textTransform:"uppercase",color:T.t,marginBottom:"6px"}}>{type==="org"?"Org summary":"Program summary"}</div>
+                  <div style={{fontSize:"13px",color:T.p,lineHeight:1.7}}>{parsed.orgSummary||parsed.programSummary}</div>
+                  {parsed.healthReason&&<div style={{fontSize:"12px",color:T.s,marginTop:"6px",fontStyle:"italic"}}>{parsed.healthReason}</div>}
+                </div>
+              </div>
+
+              {/* Team health snapshot — org only */}
+              {type==="org"&&parsed.teamHealthSnapshot?.length>0&&(
+                <div>
+                  <div style={{fontSize:"10px",fontWeight:500,letterSpacing:"0.08em",textTransform:"uppercase",color:T.t,marginBottom:"8px"}}>Team health snapshot</div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:"8px"}}>
+                    {parsed.teamHealthSnapshot.map((t,i)=>(
+                      <div key={i} style={{padding:"10px 14px",borderRadius:"10px",background:`${hc[t.health]||T.acc}0d`,border:`1px solid ${hc[t.health]||T.acc}25`}}>
+                        <div style={{display:"flex",alignItems:"center",gap:"6px",marginBottom:"4px"}}>
+                          <span style={{fontSize:"10px",color:hc[t.health]||T.acc}}>{t.health==="Green"?"●":t.health==="Amber"?"◐":"○"}</span>
+                          <span style={{fontSize:"12px",fontWeight:500,color:T.p}}>{t.team||"Team"}</span>
+                        </div>
+                        {t.facilitator&&<div style={{fontSize:"10px",color:T.s,marginBottom:"4px"}}>{t.facilitator}</div>}
+                        {t.topIssue&&<div style={{fontSize:"11px",color:T.s,lineHeight:1.4}}>{t.topIssue}</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 3-col wins / blockers / themes */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:"10px"}}>
+                <div style={{padding:"14px",borderRadius:"12px",background:"rgba(106,140,120,0.07)",border:"1px solid rgba(106,140,120,0.2)"}}>
+                  <div style={{fontSize:"10px",fontWeight:500,letterSpacing:"0.07em",textTransform:"uppercase",color:"#6a8c78",marginBottom:"10px"}}>🌱 Top wins</div>
+                  <Section items={parsed.topWinsAcrossOrg||parsed.commonWins} color="#6a8c78"/>
+                </div>
+                <div style={{padding:"14px",borderRadius:"12px",background:"rgba(160,80,80,0.07)",border:"1px solid rgba(160,80,80,0.2)"}}>
+                  <div style={{fontSize:"10px",fontWeight:500,letterSpacing:"0.07em",textTransform:"uppercase",color:"#a05050",marginBottom:"10px"}}>🧱 Top blockers</div>
+                  <Section items={parsed.topBlockersAcrossOrg||parsed.commonBlockers} color="#a05050"/>
+                </div>
+                <div style={{padding:"14px",borderRadius:"12px",background:"rgba(106,122,140,0.07)",border:"1px solid rgba(106,122,140,0.2)"}}>
+                  <div style={{fontSize:"10px",fontWeight:500,letterSpacing:"0.07em",textTransform:"uppercase",color:"#6a7a8c",marginBottom:"10px"}}>◈ Common themes</div>
+                  <Section items={parsed.commonThemes} color="#6a7a8c"/>
+                </div>
+              </div>
+
+              {/* Critical actions */}
+              {(parsed.criticalOrgActions||parsed.criticalOpenActions||[]).length>0&&(
+                <div>
+                  <div style={{fontSize:"10px",fontWeight:500,letterSpacing:"0.08em",textTransform:"uppercase",color:T.t,marginBottom:"8px"}}>Critical actions</div>
+                  {(parsed.criticalOrgActions||parsed.criticalOpenActions).map((a,i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:"10px",padding:"9px 14px",borderRadius:"10px",background:"rgba(255,255,255,0.7)",border:`1px solid ${T.border}`,marginBottom:"5px"}}>
+                      <div style={{width:8,height:8,borderRadius:"50%",background:pc[a.priority]||T.s,flexShrink:0}}/>
+                      <div style={{flex:1,fontSize:"12px",color:T.p}}>{a.action}</div>
+                      {(a.owner||a.team)&&<span style={{fontSize:"11px",color:T.s,whiteSpace:"nowrap"}}>{a.owner||a.team}</span>}
+                      {a.retro&&<span style={{fontSize:"10px",color:T.t,whiteSpace:"nowrap"}}>{a.retro}</span>}
+                      <span style={{fontSize:"10px",fontWeight:500,padding:"2px 8px",borderRadius:"99px",background:`${pc[a.priority]||T.s}15`,color:pc[a.priority]||T.s,border:`1px solid ${pc[a.priority]||T.s}30`}}>{a.priority}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Recommendations + risks */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
+                {(parsed.orgRecommendations||parsed.recommendations||[]).length>0&&(
+                  <div style={{padding:"14px",borderRadius:"12px",background:"rgba(106,122,140,0.06)",border:"1px solid rgba(106,122,140,0.18)"}}>
+                    <div style={{fontSize:"10px",fontWeight:500,letterSpacing:"0.07em",textTransform:"uppercase",color:"#6a7a8c",marginBottom:"10px"}}>→ Recommendations</div>
+                    <Section items={parsed.orgRecommendations||parsed.recommendations} color="#6a7a8c"/>
+                  </div>
+                )}
+                {(parsed.executiveRisks||parsed.risks||[]).length>0&&(
+                  <div style={{padding:"14px",borderRadius:"12px",background:"rgba(160,80,80,0.05)",border:"1px solid rgba(160,80,80,0.15)"}}>
+                    <div style={{fontSize:"10px",fontWeight:500,letterSpacing:"0.07em",textTransform:"uppercase",color:"#a05050",marginBottom:"10px"}}>⚠ Risks</div>
+                    <Section items={parsed.executiveRisks||parsed.risks} color="#a05050"/>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        <div style={{padding:"12px 24px",borderTop:`1px solid ${T.border}`,display:"flex",gap:"10px",alignItems:"center",flexShrink:0}}>
+          <button onClick={onRegen} disabled={generating} style={{fontSize:"12px",padding:"7px 14px",borderRadius:"8px",border:"1px solid rgba(106,122,140,0.3)",background:"transparent",color:"#6a7a8c",cursor:"pointer"}}>↺ Regenerate</button>
+          <div style={{flex:1}}/>
+          <button onClick={onClose} style={{fontSize:"12px",padding:"7px 16px",borderRadius:"8px",border:`1px solid ${T.border}`,background:"transparent",color:T.s,cursor:"pointer"}}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [screen,       setScreen]       = useState("login");
   const [loginUser,    setLoginUser]    = useState("");
@@ -501,37 +635,117 @@ export default function App() {
   function removeLink(id){ setCtxF("links",(activeBoard?.context?.links||[]).filter(l=>l.id!==id)); }
   function togglePublish(){ updateBoard(b=>({...b,published:!b.published})); }
 
-  // ── AI Summary ──
-  async function openSummary(bid){
-    const b=boards.find(x=>x.id===bid); if(!b)return;
-    setSumBoardId(bid); setSumText(b.summary||""); setSumModal(true);
-    if(b.summary) return;
-    setSumGen(true);
-    const ctx=b.context||{};
-    const totalCards=b.cards.length, openA=b.actions.filter(a=>!a.done).length, doneA=b.actions.filter(a=>a.done).length;
-    const prompt=`You are an executive leadership coach analyzing an async retrospective. Return ONLY valid JSON, no markdown, no extra text.
+  // ── AI Summary — routes through Vercel serverless function to avoid CORS ──
+  function buildPrompt(b) {
+    const ctx = b.context || {};
+    const totalCards = b.cards.length;
+    const openA = b.actions.filter(a => !a.done).length;
+    const doneA = b.actions.filter(a => a.done).length;
+    return `You are an executive coach analyzing a team retrospective. Return ONLY valid JSON, no markdown.
 
-RETRO DATA:
-- Title: ${b.retro.title||"Untitled"} | Team: ${b.retro.team||"N/A"} | Period: ${b.retro.startDate||"?"} to ${b.retro.endDate||"?"}
-- Context: ${ctx.headline||""} ${ctx.body||""}
-- Highlights: ${(ctx.highlights||[]).map(h=>h.text).join("; ")||"None"}
-- Kudos (${b.shoutouts.length}): ${b.shoutouts.map(s=>`${s.from}→${s.to}: ${s.message}`).join(" | ")||"None"}
-- Timeline (${b.events.length}): ${b.events.map(e=>`[${e.type}] ${e.date}: ${e.title}`).join(" | ")||"None"}
-${b.columns.map(c=>{const cc=b.cards.filter(x=>x.colId===c.id);return`- ${c.label} (${cc.length}): ${cc.map(x=>x.text).join(" | ")||"None"}`;}).join("\n")}
-- Actions: ${b.actions.length} total, ${doneA} done, ${openA} open
-${b.actions.map(a=>`  [${a.done?"DONE":"OPEN"}] ${a.text}${a.owner?" | "+a.owner:""}${a.due?" | Due "+a.due:""}`).join("\n")||"  None"}
+RETRO: ${b.retro.title||"Untitled"} | Team: ${b.retro.team||"N/A"} | Period: ${b.retro.startDate||"?"} to ${b.retro.endDate||"?"}
+Context: ${ctx.headline||""} ${ctx.body||""}
+Kudos (${b.shoutouts.length}): ${b.shoutouts.map(s=>`${s.from}→${s.to}: ${s.message}`).join(" | ")||"None"}
+Timeline (${b.events.length}): ${b.events.map(e=>`[${e.type}] ${e.date}: ${e.title}`).join(" | ")||"None"}
+${b.columns.map(c=>{const cc=b.cards.filter(x=>x.colId===c.id);return`${c.label} (${cc.length}): ${cc.map(x=>x.text).join(" | ")||"None"}`;}).join("\n")}
+Actions: ${b.actions.length} total, ${doneA} done, ${openA} open
+${b.actions.map(a=>`[${a.done?"DONE":"OPEN"}] ${a.text}${a.owner?" | "+a.owner:""}${a.due?" | Due "+a.due:""}`).join("\n")||"None"}
+
+Return this exact JSON — keep all text fields SHORT (max 1-2 sentences each), crisp, and action-oriented:
+{"overallHealth":"Green|Amber|Red","healthReason":"one crisp sentence","executiveSummary":"2 sentences max — what happened and what matters","metrics":{"totalResponses":${totalCards},"participationRate":"X%","openActions":${openA},"completedActions":${doneA},"kudosGiven":${b.shoutouts.length},"timelineEvents":${b.events.length}},"topWins":["3 bullet wins, each under 10 words"],"topBlockers":["3 bullet blockers, each under 10 words"],"growthAreas":["3 bullet growth areas, each under 10 words"],"recognitions":["max 2 kudos highlights"],"criticalActions":[{"action":"","owner":"","due":"","priority":"High|Medium|Low","status":"Open|Done"}],"risks":["max 2 forward risks, one sentence each"],"recommendedNextSteps":["3 concrete next steps, each starting with a verb"]}`;
+  }
+
+  async function callAI(prompt) {
+    const res = await fetch("/api/summary", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data.result;
+  }
+
+  async function openSummary(bid) {
+    const b = boards.find(x => x.id === bid); if (!b) return;
+    setSumBoardId(bid); setSumText(""); setSumModal(true); setSumGen(true);
+    try {
+      const text = await callAI(buildPrompt(b));
+      setSumText(text);
+      saveBoards(boards.map(x => x.id === bid ? { ...x, summary: text } : x));
+    } catch(e) { setSumText("{}"); }
+    setSumGen(false);
+  }
+
+  // ── Program-wide summary (facilitator — all their boards) ──
+  const [progModal,  setProgModal]  = useState(false);
+  const [progText,   setProgText]   = useState("");
+  const [progGen,    setProgGen]    = useState(false);
+
+  async function openProgramSummary() {
+    if (!myBoards.length) return;
+    setProgModal(true); setProgGen(true); setProgText("");
+    const boardSummaries = myBoards.map(b => {
+      const openA = b.actions.filter(a => !a.done).length;
+      const doneA = b.actions.filter(a => a.done).length;
+      return `RETRO: ${b.retro.title||"Untitled"} (${b.retro.team||"N/A"}, ${b.retro.startDate||"?"}→${b.retro.endDate||"?"})
+Wins: ${b.columns.find(c=>c.label.toLowerCase().includes("helped"))
+  ? b.cards.filter(c=>c.colId===b.columns.find(x=>x.label.toLowerCase().includes("helped"))?.id).map(c=>c.text).join("; ")||"None"
+  : "N/A"}
+Blockers: ${b.columns.find(c=>c.label.toLowerCase().includes("held"))
+  ? b.cards.filter(c=>c.colId===b.columns.find(x=>x.label.toLowerCase().includes("held"))?.id).map(c=>c.text).join("; ")||"None"
+  : "N/A"}
+Growth: ${b.columns.find(c=>c.label.toLowerCase().includes("growth"))
+  ? b.cards.filter(c=>c.colId===b.columns.find(x=>x.label.toLowerCase().includes("growth"))?.id).map(c=>c.text).join("; ")||"None"
+  : "N/A"}
+Actions: ${b.actions.map(a=>`[${a.done?"DONE":"OPEN"}] ${a.text}${a.owner?" ("+a.owner+")":""}`).join("; ")||"None"}
+Kudos: ${b.shoutouts.map(s=>`${s.to}: ${s.message}`).join("; ")||"None"}`;
+    }).join("\n\n---\n\n");
+
+    const prompt = `You are an executive coach. Analyze ${myBoards.length} retrospectives and produce a PROGRAM-WIDE summary. Return ONLY valid JSON, no markdown, keep all text SHORT and action-oriented.
+
+${boardSummaries}
 
 Return this exact JSON:
-{"overallHealth":"Green|Amber|Red","healthReason":"one sentence","executiveSummary":"2-3 sentences","metrics":{"totalResponses":${totalCards},"participationRate":"estimated %","openActions":${openA},"completedActions":${doneA},"kudosGiven":${b.shoutouts.length},"timelineEvents":${b.events.length}},"topWins":["max 3 wins"],"topBlockers":["max 3 blockers"],"growthAreas":["max 3 areas"],"recognitions":["max 3 kudos"],"criticalActions":[{"action":"","owner":"","due":"","priority":"High|Medium|Low","status":"Open|Done"}],"risks":["max 2 risks"],"recommendedNextSteps":["3 next steps"]}`;
-    try{
-      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,messages:[{role:"user",content:prompt}]})});
-      const data=await res.json();
-      const raw=data.content?.find(x=>x.type==="text")?.text||"{}";
-      const clean=raw.replace(/```json|```/g,"").trim();
-      setSumText(clean);
-      saveBoards(boards.map(x=>x.id===bid?{...x,summary:clean}:x));
-    }catch(e){ setSumText("{}"); }
-    setSumGen(false);
+{"overallHealth":"Green|Amber|Red","healthReason":"one sentence","programSummary":"2-3 sentences on overall program health and themes","commonWins":["top 3 wins recurring across retros"],"commonBlockers":["top 3 blockers recurring across retros, each under 10 words"],"commonThemes":["top 3 themes observed across all retros"],"criticalOpenActions":[{"action":"","owner":"","retro":"","priority":"High|Medium|Low"}],"recommendations":["3 program-level recommendations, each starting with a verb"],"risks":["top 2 program risks if blockers persist"]}`;
+
+    try {
+      const text = await callAI(prompt);
+      setProgText(text);
+    } catch(e) { setProgText("{}"); }
+    setProgGen(false);
+  }
+
+  // ── Org-wide summary (super admin — all boards across all facilitators) ──
+  const [orgModal,  setOrgModal]  = useState(false);
+  const [orgText,   setOrgText]   = useState("");
+  const [orgGen,    setOrgGen]    = useState(false);
+
+  async function openOrgSummary() {
+    if (!boards.length) return;
+    setOrgModal(true); setOrgGen(true); setOrgText("");
+    const boardSummaries = boards.map(b => {
+      const owner = admins.find(a => a.username === b.ownedBy);
+      const openA = b.actions.filter(a => !a.done).length;
+      return `RETRO: ${b.retro.title||"Untitled"} | Facilitator: ${owner?.displayName||b.ownedByName||"Unknown"} | Team: ${b.retro.team||"N/A"}
+Wins: ${b.cards.filter(c=>b.columns.find(x=>x.id===c.colId&&x.label.toLowerCase().includes("helped"))).map(c=>c.text).join("; ")||"N/A"}
+Blockers: ${b.cards.filter(c=>b.columns.find(x=>x.id===c.colId&&x.label.toLowerCase().includes("held"))).map(c=>c.text).join("; ")||"N/A"}
+Open actions (${openA}): ${b.actions.filter(a=>!a.done).map(a=>`${a.text}${a.owner?" ("+a.owner+")":""}`).join("; ")||"None"}
+Kudos: ${b.shoutouts.map(s=>`${s.to}: ${s.message}`).join("; ")||"None"}`;
+    }).join("\n\n---\n\n");
+
+    const prompt = `You are a Chief of Staff analyzing ${boards.length} retrospectives across ${admins.length} teams. Produce an ORG-WIDE summary for executive leadership. Return ONLY valid JSON, no markdown, keep all text SHORT and action-oriented.
+
+${boardSummaries}
+
+Return this exact JSON:
+{"overallHealth":"Green|Amber|Red","healthReason":"one sentence","orgSummary":"2-3 sentences on org-wide health, patterns, and urgency","topWinsAcrossOrg":["top 3 wins seen across teams"],"topBlockersAcrossOrg":["top 3 blockers seen across multiple teams, each under 10 words"],"commonThemes":["top 3 themes across org"],"teamHealthSnapshot":[{"team":"","facilitator":"","health":"Green|Amber|Red","topIssue":""}],"criticalOrgActions":[{"action":"","owner":"","team":"","priority":"High|Medium|Low"}],"orgRecommendations":["3 org-level recommendations for leadership, each starting with a verb"],"executiveRisks":["top 2 org-wide risks requiring leadership attention"]}`;
+
+    try {
+      const text = await callAI(prompt);
+      setOrgText(text);
+    } catch(e) { setOrgText("{}"); }
+    setOrgGen(false);
   }
   function saveSummary(publish){
     saveBoards(boards.map(b=>b.id===sumBoardId?{...b,summary:sumText,summaryPublished:publish?true:b.summaryPublished}:b));
@@ -609,6 +823,7 @@ Return this exact JSON:
         <div style={{display:"flex",gap:"8px"}}>
           <Btn onClick={()=>setSaTab("accounts")} color={saTab==="accounts"?"linear-gradient(135deg,#6a7a8c,#8a9aaa)":undefined} ghost={saTab!=="accounts"}>Accounts</Btn>
           <Btn onClick={()=>setSaTab("boards")}   color={saTab==="boards"?"linear-gradient(135deg,#6a8c78,#8aaa94)":undefined} ghost={saTab!=="boards"}>All boards</Btn>
+          {boards.length>0&&<Btn onClick={openOrgSummary} color="linear-gradient(135deg,#7a6a8c,#9a8aac)">Org summary</Btn>}
           <Btn onClick={signOut} ghost>Sign out</Btn>
         </div>
       </div>
@@ -691,6 +906,7 @@ Return this exact JSON:
         </div>
       )}
       {sumModal&&<SummaryModal board={boards.find(b=>b.id===sumBoardId)} text={sumText} setText={setSumText} generating={sumGen} onClose={()=>setSumModal(false)} onSave={saveSummary} onRegen={()=>openSummary(sumBoardId)} onUnpublish={unpublishSummary}/>}
+      {orgModal&&<WideModal title="Org-wide summary" subtitle={`${boards.length} boards · ${admins.length} facilitators`} text={orgText} generating={orgGen} onClose={()=>setOrgModal(false)} onRegen={openOrgSummary} type="org"/>}
     </div>
   );
 
@@ -705,6 +921,7 @@ Return this exact JSON:
         </div>
         <div style={{display:"flex",gap:"8px"}}>
           <Btn onClick={createBoard} color="linear-gradient(135deg,#6a8c78,#8aaa94)">+ New board</Btn>
+          {myBoards.length>0&&<Btn onClick={openProgramSummary} color="linear-gradient(135deg,#6a7a8c,#8a9aaa)">Program summary</Btn>}
           <Btn onClick={signOut} ghost>Sign out</Btn>
         </div>
       </div>
@@ -755,6 +972,7 @@ Return this exact JSON:
         </div>
       }
       {sumModal&&<SummaryModal board={boards.find(b=>b.id===sumBoardId)} text={sumText} setText={setSumText} generating={sumGen} onClose={()=>setSumModal(false)} onSave={saveSummary} onRegen={()=>openSummary(sumBoardId)} onUnpublish={unpublishSummary}/>}
+      {progModal&&<WideModal title="Program summary" subtitle={`${myBoards.length} boards · ${currentAdmin?.displayName}`} text={progText} generating={progGen} onClose={()=>setProgModal(false)} onRegen={openProgramSummary} type="program"/>}
     </div>
   );
 
